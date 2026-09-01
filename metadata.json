@@ -1,0 +1,6 @@
+{
+  "name": "Luxury Beauty - TikTok Amazon Storefront",
+  "description": "Official TikTok bio link storefront for Luxury Beauty (@luxurybeauty289), showcasing curated Amazon beauty and lifestyle recommendations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

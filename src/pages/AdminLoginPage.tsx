@@ -1,5 +1,19 @@
 import React, { useState } from 'react';
-import { Lock, AlertCircle, ArrowLeft, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import {
+  Lock,
+  ArrowLeft,
+  ShieldAlert,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  Mail,
+  KeyRound,
+  CheckCircle2,
+  RefreshCw,
+  Copy,
+  Check,
+  Globe
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AUTHORIZED_ADMIN_EMAIL } from '../firebase/config';
 
@@ -30,13 +44,50 @@ const GoogleIcon = () => (
 );
 
 export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBackToHome }) => {
-  const { signInWithGoogle, authError, clearAuthError, loading } = useAuth();
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const {
+    loginWithPassword,
+    signInWithGoogle,
+    authError,
+    authErrorDetails,
+    clearAuthError,
+    loading
+  } = useAuth();
+
+  const [email, setEmail] = useState(AUTHORIZED_ADMIN_EMAIL);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSigningInGoogle, setIsSigningInGoogle] = useState(false);
+  const [copiedDomain, setCopiedDomain] = useState(false);
+
+  const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isUnauthorizedDomain =
+    authErrorDetails?.code === 'auth/unauthorized-domain' ||
+    (authError && authError.toLowerCase().includes('unauthorized domain')) ||
+    (authError && authError.toLowerCase().includes('authorized domain'));
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    clearAuthError();
+    setIsSubmitting(true);
+    
+    // Authenticate with Email & Password
+    loginWithPassword(email, password);
+    setIsSubmitting(false);
+  };
 
   const handleGoogleSignIn = async () => {
-    setIsSigningIn(true);
+    clearAuthError();
+    setIsSigningInGoogle(true);
     await signInWithGoogle();
-    setIsSigningIn(false);
+    setIsSigningInGoogle(false);
+  };
+
+  const handleCopyDomain = () => {
+    if (!currentDomain) return;
+    navigator.clipboard.writeText(currentDomain);
+    setCopiedDomain(true);
+    setTimeout(() => setCopiedDomain(false), 3000);
   };
 
   return (
@@ -44,7 +95,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBackToHome }) 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <button
           onClick={onBackToHome}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900 mb-6 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900 mb-6 transition-colors cursor-pointer"
           id="btn-back-to-storefront-login"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -56,58 +107,153 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBackToHome }) 
             <Lock className="w-7 h-7" />
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-            Administrator Access
+            Secure Administrator Access
           </h2>
-          <p className="mt-2 text-sm text-stone-600">
-            Sign in with Google to manage products, Amazon links, and storefront settings.
+          <p className="mt-2 text-xs sm:text-sm text-stone-600">
+            Please enter your administrator credentials and password to manage your storefront products.
           </p>
         </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 sm:px-10 shadow-lg rounded-2xl border border-stone-200">
-          {/* Error Alert if Unauthorized or Sign-In Fails */}
-          {authError && (
+          
+          {/* Error Message Alert */}
+          {authError && !isUnauthorizedDomain && (
             <div
-              className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 flex items-start gap-3"
+              className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 flex items-start gap-3 animate-in fade-in"
               id="admin-auth-error-banner"
             >
               <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div className="text-xs sm:text-sm">
-                <p className="font-bold mb-0.5">Authorization Error</p>
+                <p className="font-bold mb-0.5">Authentication Error</p>
                 <p className="leading-snug">{authError}</p>
               </div>
             </div>
           )}
 
-          {/* Security Notice */}
-          <div className="mb-6 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900 text-xs leading-relaxed flex items-start gap-2.5">
-            <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-amber-950">Strict Access Control</p>
-              <p className="text-amber-800 mt-0.5">
-                Only the designated administrator account (<strong>{AUTHORIZED_ADMIN_EMAIL}</strong>) is authorized to access this portal. All other Google accounts will be rejected.
-              </p>
+          {/* Unauthorized Domain Guide (if Google OAuth was clicked and failed) */}
+          {isUnauthorizedDomain && (
+            <div
+              className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-300 text-stone-900 text-xs"
+              id="unauthorized-domain-fix-box"
+            >
+              <div className="flex items-start gap-2.5">
+                <Globe className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-stone-900">Domain Not Added to Google OAuth</div>
+                  <p className="text-stone-700 mt-0.5">
+                    Use the Email & Password form below to sign in directly without domain configuration.
+                  </p>
+                  <button
+                    onClick={handleCopyDomain}
+                    type="button"
+                    className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white border border-stone-300 text-stone-700 hover:bg-stone-50 transition-colors"
+                  >
+                    {copiedDomain ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedDomain ? 'Copied!' : 'Copy Domain for Firebase'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
+          )}
+
+          {/* Secure Login Form */}
+          <form onSubmit={handleSubmit} className="space-y-4" id="form-admin-password-login">
+            {/* Email Field */}
+            <div>
+              <label htmlFor="input-admin-email" className="block text-xs font-bold text-stone-700 mb-1.5">
+                Administrator Email Address
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  id="input-admin-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Collinsmonye5227@gmail.com"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-300 text-sm text-stone-900 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-stone-500 focus:ring-2 focus:ring-amber-200/50 transition-all font-mono text-xs sm:text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Password Field */}
+            <div>
+              <label htmlFor="input-admin-password" className="block text-xs font-bold text-stone-700 mb-1.5">
+                Administrator Password
+              </label>
+              <div className="relative">
+                <KeyRound className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  id="input-admin-password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-stone-300 text-sm text-stone-900 focus:outline-hidden focus:border-stone-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 p-1 cursor-pointer"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isSubmitting || loading || !password}
+              className="w-full mt-2 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-stone-950 hover:bg-stone-900 text-amber-400 font-extrabold text-sm shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              id="btn-submit-password-login"
+            >
+              {isSubmitting ? (
+                <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
+              ) : (
+                <ShieldCheck className="w-5 h-5 text-amber-400" />
+              )}
+              <span>Sign In to Admin Dashboard</span>
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="relative my-6 flex items-center">
+            <div className="flex-grow border-t border-stone-200"></div>
+            <span className="flex-shrink mx-3 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+              Or with Google
+            </span>
+            <div className="flex-grow border-t border-stone-200"></div>
           </div>
 
-          {/* Sign In with Google Button */}
+          {/* Sign in with Google Button */}
           <button
+            type="button"
             onClick={handleGoogleSignIn}
-            disabled={isSigningIn || loading}
-            className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-stone-800 font-bold text-sm shadow-xs hover:shadow transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={isSigningInGoogle || loading}
+            className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-stone-800 font-bold text-xs shadow-2xs hover:shadow transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             id="btn-sign-in-google"
           >
-            <GoogleIcon />
-            <span>
-              {isSigningIn || loading ? 'Verifying Google Account...' : 'Sign in with Google'}
-            </span>
+            {isSigningInGoogle ? (
+              <RefreshCw className="w-4 h-4 animate-spin text-stone-600" />
+            ) : (
+              <GoogleIcon />
+            )}
+            <span>Sign in with Google ({AUTHORIZED_ADMIN_EMAIL})</span>
           </button>
 
-          <div className="mt-6 pt-6 border-t border-stone-100 text-center">
-            <p className="text-xs text-stone-400">
-              Protected by Firebase Authentication & Security Rules.
-            </p>
+          {/* Security Notice */}
+          <div className="mt-6 pt-5 border-t border-stone-100 flex items-start gap-2.5 text-stone-600 text-xs">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              Protected portal strictly reserved for <span className="font-mono text-stone-900 font-bold">{AUTHORIZED_ADMIN_EMAIL}</span> with password required.
+            </div>
           </div>
         </div>
       </div>

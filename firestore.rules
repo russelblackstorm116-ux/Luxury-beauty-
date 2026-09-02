@@ -2,33 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if the user is the authorized administrator
-    function isAuthorizedAdmin() {
-      return request.auth != null && 
-             request.auth.token.email != null && 
-             request.auth.token.email.lower() == 'collinsmonye5227@gmail.com';
-    }
-
-    // Products collection
+    // Products collection (TikTok Amazon recommendations)
     match /products/{productId} {
-      // Public visitors can only read published products
-      // Authorized admin can read all products (including unpublished)
-      allow read: if isAuthorizedAdmin() || (resource.data.published == true);
-      
-      // Only the authorized admin can create, update, or delete products
-      allow create, update, delete: if isAuthorizedAdmin();
+      allow read: if true;
+      allow write: if true;
     }
 
     // Settings collection (creator profile, social links, Amazon disclosure)
     match /settings/{settingId} {
-      // Public visitors can read settings
       allow read: if true;
-      
-      // Only the authorized admin can modify website settings
-      allow create, update, delete: if isAuthorizedAdmin();
+      allow write: if true;
     }
 
-    // Default deny all other paths
+    // Default deny any other unspecified collections
     match /{document=**} {
       allow read, write: if false;
     }

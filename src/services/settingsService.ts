@@ -39,7 +39,7 @@ export function subscribeSettings(
           creatorName: data.creatorName || DEFAULT_SETTINGS.creatorName,
           creatorHandle: data.creatorHandle || DEFAULT_SETTINGS.creatorHandle,
           bio: data.bio || DEFAULT_SETTINGS.bio,
-          profilePictureUrl: data.profilePictureUrl || '',
+          profilePictureUrl: data.profilePictureUrl || DEFAULT_SETTINGS.profilePictureUrl,
           logoUrl: data.logoUrl || '',
           mainTitle: data.mainTitle || DEFAULT_SETTINGS.mainTitle,
           mainDescription: data.mainDescription || DEFAULT_SETTINGS.mainDescription,

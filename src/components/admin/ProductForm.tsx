@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Upload,
@@ -10,10 +10,14 @@ import {
   Image as ImageIcon,
   Loader2,
   ExternalLink,
-  Layers
+  Layers,
+  Video,
+  Sparkles,
+  Clipboard,
+  RefreshCw
 } from 'lucide-react';
 import { Product } from '../../types';
-import { validateAmazonUrl } from '../../utils/amazonValidator';
+import { validateAmazonUrl, getAmazonProductImageUrls } from '../../utils/amazonValidator';
 import { uploadImage, validateImageFile } from '../../services/storageService';
 
 interface ProductFormProps {
@@ -49,6 +53,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   );
   const [category, setCategory] = useState(initialProduct?.category || '');
   const [imageUrl, setImageUrl] = useState(initialProduct?.imageUrl || '');
+  const [videoUrl, setVideoUrl] = useState(initialProduct?.videoUrl || '');
   const [displayOrder, setDisplayOrder] = useState<number>(
     initialProduct?.displayOrder !== undefined ? initialProduct.displayOrder : 0
   );
@@ -56,27 +61,21 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     initialProduct ? initialProduct.published : true
   );
 
-  // Validation States
+  // Validation & Processing States
   const [urlTouched, setUrlTouched] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [imageMeta, setImageMeta] = useState<{ sizeKb?: number; width?: number; height?: number } | null>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   // Real-time Amazon URL validation
   const urlValidation = validateAmazonUrl(amazonUrl);
   const isUrlValid = urlValidation.isValid;
 
-  // Form validity check
-  const isFormValid =
-    name.trim().length > 0 &&
-    amazonUrl.trim().length > 0 &&
-    isUrlValid &&
-    !isUploadingImage;
-
-  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Process a selected or dropped or pasted image file
+  const processImageFile = async (file: File) => {
     setImageUploadError(null);
     const validation = validateImageFile(file);
     if (!validation.valid) {
@@ -89,15 +88,95 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     try {
       const result = await uploadImage(file, 'products');
       setImageUrl(result.url);
-      onShowToast('Product image uploaded successfully!', 'success');
+      if (result.sizeBytes || result.width) {
+        setImageMeta({
+          sizeKb: result.sizeBytes ? Math.round(result.sizeBytes / 1024) : undefined,
+          width: result.width,
+          height: result.height,
+        });
+      }
+      onShowToast('Product image imported & optimized successfully!', 'success');
     } catch (err: any) {
-      console.error('Image upload failure:', err);
-      setImageUploadError(err.message || 'Image upload failed. Please try again.');
-      onShowToast('Image upload failed', 'error');
+      console.error('Image processing failure:', err);
+      const msg = err.message || 'Image import failed. Please try again.';
+      setImageUploadError(msg);
+      onShowToast(msg, 'error');
     } finally {
       setIsUploadingImage(false);
     }
   };
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processImageFile(file);
+    }
+  };
+
+  // Drag and Drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processImageFile(files[0]);
+    }
+  };
+
+  // Clipboard paste support (Ctrl+V / Cmd+V)
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            processImageFile(file);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
+
+  // One-click Amazon image fetch
+  const handleFetchAmazonImage = () => {
+    if (!urlValidation.asin) return;
+    const candidates = getAmazonProductImageUrls(urlValidation.asin);
+    if (candidates.length > 0) {
+      setImageUrl(candidates[0]);
+      setImageUploadError(null);
+      setImageMeta({ sizeKb: undefined, width: 600, height: 600 });
+      onShowToast('Amazon product image selected!', 'success');
+    }
+  };
+
+  // Form validity check
+  const isFormValid =
+    name.trim().length > 0 &&
+    amazonUrl.trim().length > 0 &&
+    isUrlValid &&
+    !isUploadingImage;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,6 +199,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         description: description.trim(),
         amazonUrl: urlValidation.cleanUrl || amazonUrl.trim(),
         imageUrl: imageUrl.trim(),
+        videoUrl: videoUrl.trim() || undefined,
         price: price.trim() || undefined,
         category: category.trim() || undefined,
         displayOrder: Number(displayOrder) || 0,
@@ -254,87 +334,174 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           />
         </div>
 
-        {/* Product Image Upload Section */}
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
-            Product Image
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
-            {/* Image Preview */}
-            <div className="sm:col-span-1 aspect-square rounded-2xl bg-stone-100 border border-stone-200 overflow-hidden relative flex items-center justify-center">
-              {imageUrl ? (
-                <>
-                  <img
-                    src={imageUrl}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setImageUrl('')}
-                    className="absolute top-2 right-2 p-1.5 rounded-full bg-stone-900/80 text-white hover:bg-stone-900 shadow-sm"
-                    title="Remove Image"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </>
-              ) : (
-                <div className="flex flex-col items-center text-stone-400 p-4 text-center">
-                  <ImageIcon className="w-8 h-8 stroke-1 mb-1 text-stone-300" />
-                  <span className="text-xs">No image chosen</span>
-                </div>
+        {/* Product Media Section (Image & Video) */}
+        <div className="space-y-4 pt-2 border-t border-stone-100">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-stone-700">
+                Product Image (Required for Storefront)
+              </label>
+              {urlValidation.asin && (
+                <button
+                  type="button"
+                  onClick={handleFetchAmazonImage}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg transition-colors"
+                  id="btn-fetch-amazon-img"
+                  title="Auto-fetch official Amazon product photo using the detected ASIN"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Use Amazon Product Photo</span>
+                </button>
               )}
             </div>
 
-            {/* Upload Controls */}
-            <div className="sm:col-span-2 space-y-3">
-              <div>
-                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-stone-300 hover:border-stone-400 rounded-xl cursor-pointer bg-stone-50/50 hover:bg-stone-50 transition-colors">
-                  <div className="flex items-center gap-2 text-stone-600 text-xs font-semibold">
-                    {isUploadingImage ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
-                        <span>Uploading image...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4 text-amber-600" />
-                        <span>Upload Image from Device (Max 5MB)</span>
-                      </>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
+              {/* Image Preview */}
+              <div className="sm:col-span-1 aspect-square rounded-2xl bg-stone-100 border border-stone-200 overflow-hidden relative flex flex-col items-center justify-center p-2 group">
+                {imageUrl ? (
+                  <>
+                    <img
+                      src={imageUrl}
+                      alt="Preview"
+                      className="w-full h-full object-contain rounded-xl"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageUrl('');
+                          setImageMeta(null);
+                        }}
+                        className="p-2 rounded-full bg-rose-600 text-white hover:bg-rose-700 shadow-md transition-transform hover:scale-105"
+                        title="Remove Image"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {imageMeta && (
+                      <span className="absolute bottom-1.5 left-1.5 right-1.5 text-[10px] font-medium bg-stone-900/80 text-white px-2 py-0.5 rounded text-center truncate">
+                        {imageMeta.width && imageMeta.height ? `${imageMeta.width}×${imageMeta.height}` : ''}
+                        {imageMeta.sizeKb ? ` • ${imageMeta.sizeKb} KB` : ''}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center text-stone-400 p-4 text-center">
+                    <ImageIcon className="w-8 h-8 stroke-1 mb-1.5 text-stone-300" />
+                    <span className="text-xs font-medium">No image yet</span>
+                    <span className="text-[10px] text-stone-400 mt-1">Upload, paste, or drop</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload & Import Controls */}
+              <div className="sm:col-span-2 space-y-3">
+                {/* Drag and drop upload box */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`border-2 border-dashed rounded-xl p-4 text-center transition-all ${
+                    isDragOver
+                      ? 'border-amber-500 bg-amber-50/70 scale-[1.01]'
+                      : 'border-stone-300 hover:border-stone-400 bg-stone-50/60 hover:bg-stone-50'
+                  }`}
+                  id="drag-drop-image-zone"
+                >
+                  <label className="cursor-pointer block">
+                    <div className="flex flex-col items-center gap-1.5">
+                      {isUploadingImage ? (
+                        <div className="flex items-center gap-2 text-amber-700 text-xs font-semibold py-1">
+                          <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+                          <span>Optimizing & importing image...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mb-0.5">
+                            <Upload className="w-4 h-4" />
+                          </div>
+                          <p className="text-xs font-bold text-stone-700">
+                            Click to select photo or drag & drop here
+                          </p>
+                          <p className="text-[11px] text-stone-500">
+                            JPG, PNG, WEBP, HEIC (Max 25MB • auto-compressed to ~50KB)
+                          </p>
+                          <p className="text-[10px] text-stone-400 inline-flex items-center gap-1 mt-0.5">
+                            <Clipboard className="w-3 h-3" /> Or paste screenshot with <kbd className="px-1 py-0.5 bg-stone-200 rounded text-[9px] font-mono text-stone-600">Ctrl+V</kbd>
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.avif"
+                      onChange={handleImageFileChange}
+                      disabled={isUploadingImage}
+                      className="hidden"
+                      id="input-product-file"
+                    />
+                  </label>
+                </div>
+
+                {imageUploadError && (
+                  <p className="text-xs text-rose-600 font-medium flex items-center gap-1 bg-rose-50 p-2 rounded-lg border border-rose-200">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{imageUploadError}</span>
+                  </p>
+                )}
+
+                {/* Direct Image URL input */}
+                <div>
+                  <label className="text-[11px] font-medium text-stone-500 block mb-1">
+                    Or paste direct web image link:
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      placeholder="https://images.unsplash.com/... or https://images-na.ssl-images-amazon.com/..."
+                      className="w-full px-3.5 py-2 rounded-xl text-xs border border-stone-300 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                      id="input-direct-image-url"
+                    />
+                    {imageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageUrl('');
+                          setImageMeta(null);
+                        }}
+                        className="px-2.5 py-1 text-xs text-stone-600 hover:text-rose-600 hover:bg-stone-100 rounded-lg"
+                      >
+                        Clear
+                      </button>
                     )}
                   </div>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    onChange={handleImageFileChange}
-                    disabled={isUploadingImage}
-                    className="hidden"
-                    id="input-product-file"
-                  />
-                </label>
-              </div>
-
-              {imageUploadError && (
-                <p className="text-xs text-rose-600 font-medium flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{imageUploadError}</span>
-                </p>
-              )}
-
-              {/* Or Direct Image URL */}
-              <div>
-                <span className="text-[11px] text-stone-400 block mb-1">Or paste image URL directly:</span>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full px-3.5 py-2 rounded-xl text-xs border border-stone-300 bg-stone-50/50 focus:bg-white focus:outline-hidden"
-                  id="input-direct-image-url"
-                />
+                </div>
               </div>
             </div>
+          </div>
+
+          {/* Optional TikTok Video Review or Demo URL */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5 flex items-center gap-1.5">
+              <Video className="w-3.5 h-3.5 text-rose-600" />
+              <span>TikTok Video or Review Clip URL (Optional)</span>
+            </label>
+            <div className="relative">
+              <input
+                type="url"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="https://www.tiktok.com/@youraccount/video/... or YouTube Short"
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs border border-stone-300 bg-stone-50/50 focus:bg-white focus:border-stone-500 focus:outline-hidden"
+                id="input-product-video-url"
+              />
+            </div>
+            <p className="text-[11px] text-stone-400 mt-1">
+              Add your TikTok video link recommending this product. Followers will be able to watch your clip directly!
+            </p>
           </div>
         </div>
 

@@ -151,6 +151,7 @@ function AppContent() {
         settings={settings}
         loading={loadingProducts}
         onShowToast={showToast}
+        onNavigateToAdmin={() => navigateTo('admin')}
       />
 
       <Footer

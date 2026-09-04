@@ -14,6 +14,12 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // Health / connection test doc
+    match /test/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Default deny any other unspecified collections
     match /{document=**} {
       allow read, write: if false;

@@ -132,12 +132,12 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
                 ) : (
                   <>
                     <Upload className="w-3.5 h-3.5" />
-                    <span>Upload New Photo (Max 5MB)</span>
+                    <span>Upload Photo (Max 25MB • Auto-optimized)</span>
                   </>
                 )}
                 <input
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.avif"
                   onChange={handleAvatarFileChange}
                   disabled={isUploadingAvatar}
                   className="hidden"

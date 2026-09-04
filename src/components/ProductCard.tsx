@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExternalLink, Share2, Tag, ShoppingCart } from 'lucide-react';
+import { ExternalLink, Share2, Tag, ShoppingCart, Video } from 'lucide-react';
 import { Product } from '../types';
 import { trackProductClick } from '../services/productsService';
 
@@ -99,8 +99,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onShare }) =>
           </p>
         )}
 
+        {/* Optional Video Review Link */}
+        {product.videoUrl && (
+          <div className="mt-auto mb-2">
+            <a
+              href={product.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl border border-stone-200 hover:border-rose-300 bg-stone-50/70 hover:bg-rose-50/50 text-stone-700 hover:text-rose-700 font-medium text-xs transition-colors"
+              id={`btn-watch-video-${product.id}`}
+            >
+              <Video className="w-3.5 h-3.5 text-rose-600" />
+              <span>Watch Video Demo</span>
+            </a>
+          </div>
+        )}
+
         {/* Amazon Call to Action Button */}
-        <div className="mt-auto pt-2">
+        <div className={product.videoUrl ? 'pt-0' : 'mt-auto pt-2'}>
           <a
             href={product.amazonUrl}
             target="_blank"

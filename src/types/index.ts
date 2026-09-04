@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   description: string;
   imageUrl: string;
+  videoUrl?: string;
   amazonUrl: string;
   price?: string | number;
   category?: string;

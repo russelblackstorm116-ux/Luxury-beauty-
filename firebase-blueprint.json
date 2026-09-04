@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Amazon affiliate product recommendation for TikTok bio storefront",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Product display name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Product description or recommendation notes"
+        },
+        "amazonUrl": {
+          "type": "string",
+          "description": "Amazon product or affiliate URL"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Product thumbnail image URL"
+        },
+        "videoUrl": {
+          "type": "string",
+          "description": "Optional TikTok review or demo video URL"
+        },
+        "price": {
+          "type": "string",
+          "description": "Product price string"
+        },
+        "category": {
+          "type": "string",
+          "description": "Product category"
+        },
+        "displayOrder": {
+          "type": "number",
+          "description": "Display sort order"
+        },
+        "published": {
+          "type": "boolean",
+          "description": "Whether product is active on storefront"
+        },
+        "clicks": {
+          "type": "number",
+          "description": "Number of times clicked"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp ISO string"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last updated timestamp ISO string"
+        }
+      },
+      "required": ["name", "amazonUrl", "imageUrl"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Creator profile settings, social links, and Amazon compliance disclosure",
+      "type": "object",
+      "properties": {
+        "creatorName": {
+          "type": "string",
+          "description": "Creator or brand display name"
+        },
+        "creatorHandle": {
+          "type": "string",
+          "description": "Creator social handle (e.g. @luxurybeauty289)"
+        },
+        "bio": {
+          "type": "string",
+          "description": "Short bio or tagline"
+        },
+        "profilePictureUrl": {
+          "type": "string",
+          "description": "Profile avatar image URL"
+        },
+        "mainTitle": {
+          "type": "string",
+          "description": "Hero title"
+        },
+        "mainDescription": {
+          "type": "string",
+          "description": "Hero description"
+        },
+        "tiktokUrl": {
+          "type": "string",
+          "description": "TikTok channel link"
+        },
+        "instagramUrl": {
+          "type": "string",
+          "description": "Instagram profile link"
+        },
+        "youtubeUrl": {
+          "type": "string",
+          "description": "YouTube channel link"
+        },
+        "facebookUrl": {
+          "type": "string",
+          "description": "Facebook page link"
+        },
+        "amazonDisclosureText": {
+          "type": "string",
+          "description": "Amazon Associates required compliance disclosure text"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of Amazon products recommended by creator"
+    },
+    "/settings/{settingId}": {
+      "schema": "Settings",
+      "description": "General settings document for storefront configuration"
+    }
+  }
+}

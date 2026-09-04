@@ -19,6 +19,7 @@ interface PublicStorefrontProps {
   settings: WebsiteSettings;
   loading: boolean;
   onShowToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+  onNavigateToAdmin?: () => void;
 }
 
 type SortOption = 'featured' | 'newest' | 'price-asc' | 'price-desc' | 'name';
@@ -28,6 +29,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
   settings,
   loading,
   onShowToast,
+  onNavigateToAdmin,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -213,7 +215,11 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
           </div>
         ) : (
           /* Empty State (Either no products in database or filtered to zero) */
-          <EmptyState isFiltered={isFiltering} onResetFilters={resetFilters} />
+          <EmptyState
+            isFiltered={isFiltering}
+            onResetFilters={resetFilters}
+            onNavigateToAdmin={onNavigateToAdmin}
+          />
         )}
 
         {/* Amazon Affiliate Disclosure Section */}
